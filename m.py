@@ -1,7 +1,3 @@
-roslaunch realsense2_camera rs_camera.launch
-sudo systemctl stop robot-bringup.service
-
-
 
 import rospy
 import time
@@ -22,6 +18,9 @@ from armer_msgs.msg import MoveToNamedPoseAction, MoveToNamedPoseGoal
 
 from armer_msgs.msg import MoveToPoseAction, MoveToPoseGoal
 from armer_msgs.msg import JointVelocity
+from sensor_msgs.msg import JointState
+
+import curses
 
 
 USE_GGCNN = False
@@ -37,76 +36,47 @@ if USE_GGCNN:
 rospy.init_node('gentle_benchmark')
 print('rospy.init_node')
 
+
+
+
 class GentleBenchmarkController(object):
     def __init__(self):
         self.setup()
         self.fetch_ggcnn_result = False
         self.latest_ggcnn_pose = None
+        rospy.Subscriber('/franka_gripper/joint_states', JointState, self.callback)
+
+    def callback(self, state):
+        self.curr_width = state.position[0]+state.position[1]
 
     def shakeHandDemo(self):
-        # print("--Moving to shaking_hand1")
-        # self.move_to_somewhere('shaking_hand1')
-        # print("--Closing gripper")
-        # self.close_gripper(1)
+        while not rospy.is_shutdown():
+            print('close--1, open--2, exit--3:')
+            x = input()
+            if x == "1":
+                print('close......')
+                self.close_gripper()
+                # self.open_gripper(0.03)
+            if x == "2":
+                print('open......')
+                # self.open_gripper()
+                self.open_gripper_slow()
 
-        # print('--move to shaking_up position')
-        # self.move_to_somewhere('shaking_up')
+            if x == "3":
+                print('return......')
+                return
 
-        # print("--Moving to shaking_hand2")
-        # self.move_to_somewhere('shaking_hand2')
-
-        # print("--Openning gripper")
-        # self.open_gripper()
-
-        # print("--Moving to thor_home")
-        # self.move_to_somewhere('thor_home')
-
-        # print("--shake hand")
-        # self.do_shake()
-        # self.do_shake_joint_vel()#shake left and right
-        # rospy.sleep(1)
-        # self.do_shake_vel()# shake up and down
-        # self.close_gripper(1)
-        # self.open_gripper()
-        # self.move_to_somewhere('thor_home')
-        # self.move_to_cartesian(0.2)
-
-        # get the position of the cartesian
-        # rosrun tf tf_echo /panda_link0 /panda_EE
-
-        # rosservice call /arm/get_named_poses
-        # rosservice call /arm/set_named_pose "pose_name: {DESIRED_POSE_NAME}"
-        # rosservice call /arm/remove_named_pose "pose_name: {POSE_TO_REMOVE}"
-        # self.move_to_somewhere('thor_home')
-        # while not rospy.is_shutdown():
-        #     for i in range(2):
-                
-        #         self.move_to_cartesian(-0.022, 0.536, 0.07)
-        #         rospy.sleep(1)
-        #         self.move_to_cartesian(-0.022, 0.536, 0.06)
-        #         rospy.sleep(1)
-        # self.move_to_somewhere('thor_home')
-        # for i in range(2):
-            # self.close_gripper(0.02)
-            width = 0.035
-            time.sleep(1)
-            # self.open_gripper(width)
-            for i in range(20):
-                self.open_gripper(width)
-                width += 0.001
-                time.sleep(0.05)
-                print("i={}, width={}".format(i, width))
-
-            # self.open_gripper(0.031)
-            # for i in range(20):
-            #     self.open_gripper(width)
-            #     width += 0.001
-            #     time.sleep(0.5)
-
-            # for i in range(20):
-            #     self.open_gripper(width)
-            #     width += 0.0001
-            #     time.sleep(0.5)
+    def open_gripper_slow(self):
+        width = self.curr_width
+        # stdscr = curses.initscr()
+        for i in range(200):
+            self.open_gripper(width)
+            width += 0.001
+            if width > 0.055:
+                break
+            time.sleep(0.05)
+            print("i={}, width={}".format(i, width))
+        # curses.endwin()
 
     def close_gripper0(self, position=0.01, max_effort=0.01):
         gripper_goal = GripperCommandActionGoal()
@@ -148,7 +118,7 @@ class GentleBenchmarkController(object):
         grasp_goal.goal.width = 0.03
         grasp_goal.goal.epsilon.inner = 0.03
         grasp_goal.goal.epsilon.outer = 0.05
-        grasp_goal.goal.speed = 0.05
+        grasp_goal.goal.speed = 0.02
         grasp_goal.goal.force = force
         self.gripper_grasp_action.send_goal(grasp_goal.goal)
         self.gripper_grasp_action.wait_for_result()
@@ -307,8 +277,7 @@ class GentleBenchmarkController(object):
         self.gripper_homing_action.send_goal(homing_goal.goal)
         self.gripper_homing_action.wait_for_result()
 
-
-    def open_gripper(self, width=0.08, speed=0.005):
+    def open_gripper(self, width=0.08, speed=0.001):
         stop_goal = StopActionGoal()
         self.gripper_stop_action.send_goal(stop_goal.goal)
         self.gripper_stop_action.wait_for_result()
