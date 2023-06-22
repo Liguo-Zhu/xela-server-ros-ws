@@ -28,8 +28,6 @@ USE_GGCNN = False
 if USE_GGCNN:
     import message_filters
     from sensor_msgs.msg import Image, CameraInfo
-    from rv_msgs.msg import Observation
-    from rv_msgs.srv import ProcessObservation
     GRASP_HEIGHT = 0.085
 
 
